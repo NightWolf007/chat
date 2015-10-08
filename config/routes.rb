@@ -1,4 +1,23 @@
 Rails.application.routes.draw do
+
+  namespace :api, as: nil, defaults: {format: 'json'} do
+    namespace :v1, as: nil do
+      devise_for :users, controllers:
+        {
+          :passwords => 'api/devise/passwords',
+          :registrations => 'api/devise/registrations',
+          :sessions => 'api/devise/sessions'
+        }
+
+      get '/users/me' => 'users#me'
+      resources :users, :only => [:show, :update, :destroy]
+
+      get '/rooms/:id' => 'channels#show'
+      post '/rooms' => 'channels#create'
+      get '/messages' => 'channels#messages'
+      post '/rooms/:id/upload' => 'channels#upload'
+    end
+  end
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 

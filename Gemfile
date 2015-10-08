@@ -26,3 +26,9 @@ gem 'pg'
 
 # To use debugger
 # gem 'ruby-debug19', :require => 'ruby-debug'
+
+gem 'redis'
+gem 'rack-cors'
+
+# Auth
+gem 'devise'
