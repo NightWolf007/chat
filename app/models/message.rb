@@ -9,7 +9,8 @@ class RMessage
       srooms = $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
       srooms.map do |sroom|
         jroom = JSON.parse sroom
-        new jroom[:text], jroom[:timestamp], jroom[:user_id], rid
+        jroom[:room_id] = rid
+        new jroom
       end
     end
 
@@ -26,18 +27,19 @@ class RMessage
 
   end
 
-  def initialize(text, timestamp, user_id, room_id, id = SecureRandom.generate 6)
-    @id = id
-    @text = text
-    @timestamp = timestamp
-    @user_id = user_id
-    @room_id = room_id
+  def initialize(options={})
+    @id = options.fetch :id, SecureRandom.generate(6)
+    @text = options.fetch :text
+    @timestamp = options.fetch :timestamp
+    @user_id = options.fetch :user_id
+    @room_id = options.fetch :room_id
   end
 
   def user
+    User.find @user_id
   end
 
   def room
-    Room.find room_id
+    Room.find @room_id
   end
 end
