@@ -1,10 +1,11 @@
-class Api::V1::ChannelsController < ActionController::Base
+class Api::V1::ChannelsController < ApplicationControler
 
   def create
-    key = generate_s 8
-    $redis.del key
-    $redis.rpush key, JSON.generate({id: key, ip: request.remote_ip, timestamp: Time.now.utc})
-    render :json => {room: {id: key}}
+    if !params.has_key?(:type)
+      render :status => :bad_request, :json => {}
+      return nil
+    end
+    Services::CreateRoom(params, self).execute
   end
 
   def show
@@ -50,12 +51,5 @@ class Api::V1::ChannelsController < ActionController::Base
     end
 
     render :json => {url: "#{request.base_url}/uploads/#{Date.today.strftime '%m_%d_%Y'}/#{filename}"}
-  end
-
-  private
-
-  def generate_s(len)
-    charset = Array('A'..'Z') + Array('a'..'z')
-    Array.new(len) { charset.sample }.join
   end
 end
