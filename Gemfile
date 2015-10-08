@@ -27,8 +27,13 @@ gem 'pg'
 # To use debugger
 # gem 'ruby-debug19', :require => 'ruby-debug'
 
+gem 'active_model_serializers', :git => 'https://github.com/beauby/active_model_serializers.git'
+gem 'kaminari'
+
 gem 'redis'
 gem 'rack-cors'
 
 # Auth
 gem 'devise'
+
+gem 'dotenv-rails'
