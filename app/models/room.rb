@@ -31,7 +31,7 @@ class RRoom
   end
 
   def messages
-    $redis.lrange "#{TABLE_NAME}:#{id}:messages", 0, -1
+    $redis.lrange "#{Message.TABLE_NAME}:#{id}", 0, -1
   end
 
   def users
