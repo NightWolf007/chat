@@ -13,12 +13,9 @@ class ApplicationController < ActionController::Base
       authenticate_with_http_token do |token, options|
         user_name = options[:user_name].presence
         user = user_name && User.find_by_name(user_name)
-        # logger.info token
         token.sub! 'token=', ''
         token.sub! 'name=', 'user_name'
-        # logger.info token
         if user && Devise.secure_compare(user.authentication_token, token)
-          # logger.info 'NYAN'
           sign_in user, store: false
         end
       end

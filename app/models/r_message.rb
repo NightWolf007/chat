@@ -1,5 +1,7 @@
 class RMessage
 
+  attr_accessor :id, :text, :timestamp, :user_id, :room_id
+
   TABLE_NAME = 'messages'
 
   class << self
@@ -36,10 +38,18 @@ class RMessage
   end
 
   def user
-    User.find @user_id
+    User.find @room_id, @user_id
   end
 
   def room
     Room.find @room_id
+  end
+
+  def save
+    $redis.rpush "#{TABLE_NAME}:#{rid}", to_json
+  end
+
+  def to_json
+    JSON.generate id: @id, text: @text, timestamp: @timestamp, user_id: @user_id
   end
 end

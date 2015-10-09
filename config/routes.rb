@@ -12,8 +12,10 @@ Rails.application.routes.draw do
       get '/users/me' => 'users#me'
       resources :users, :only => [:show, :update, :destroy]
 
-      get '/rooms/:id' => 'channels#show'
-      post '/rooms' => 'channels#create'
+      get '/private/:id' => 'private_rooms#show'
+      post '/private' => 'private_rooms#create'
+      get '/anonymous/:id' => 'anonymous_rooms#show'
+      post '/anonymous' => 'anonymous_rooms#create'
       get '/messages' => 'channels#messages'
       post '/rooms/:id/upload' => 'channels#upload'
     end

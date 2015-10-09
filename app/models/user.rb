@@ -7,7 +7,7 @@ class User < ActiveRecord::Base
           :trackable
 
   validates :name, presence: true
-  validates :gender, presence: true
+  validates :sex, presence: true
   validates :birthday, presence: true
   validates :location, presence: true
 
