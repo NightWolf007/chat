@@ -1,4 +1,4 @@
-class Api::Devise::SessionsController < Devise::SessionsController
+class Api::Devise::SessionsController < DeviseTokenAuth::SessionsController
   
   def create
     respond_to do |format|
@@ -6,8 +6,18 @@ class Api::Devise::SessionsController < Devise::SessionsController
       format.json do
         self.resource = warden.authenticate!(auth_options)
         sign_in(resource_name, resource)
+
         render json: {user: self.resource}, status: 201
       end
+    end
+  end
+
+  private
+
+  def generate_authentication_token
+    loop do
+      token = Devise.friendly_token
+      break token unless User.where(authentication_token: token).exists?
     end
   end
   

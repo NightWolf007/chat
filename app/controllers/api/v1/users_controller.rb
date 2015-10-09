@@ -13,7 +13,6 @@ class Api::V1::UsersController < ApplicationController
   end
 
   def update
-    p user_params
     if current_user.id.to_s != params[:id]
       render :status => 403, :json => []
       return nil
