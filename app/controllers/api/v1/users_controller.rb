@@ -3,42 +3,54 @@ class Api::V1::UsersController < ApplicationController
 
   def show
     @user = User.find(params[:id])
-    @detailed = (current_user && current_user.id.to_s == params[:id])
+    if current_user && current_user.id == @user.id
+      render json: @user, serializer: CurrentUserSerializer
+    else
+      render json: @user
+    end
   end
 
   def me
     @user = User.find(current_user.id)
-    @detailed = true
-    render :show
+    render json: @user
   end
 
   def update
-    if current_user.id.to_s != params[:id]
-      render :status => 403, :json => []
+    @user = User.find params[:id]
+    if current_user.id != @user.id
+      render :status => 403, :json => {}
       return nil
     end
-    @user = User.find params[:id]
+
+    if params.has_key?(:user) 
+      if params[:user].has_key?(:img)
+        params[:user][:image] = upload_avatar params[:user][:img]
+        params[:user].delete(:img)
+      else
+        params[:user][:image] = nil
+      end
+    end
+
     if @user.update_attributes user_params
-      @detailed = true
-      render :show
+      render json: @user
     else
       render :status => 422, :json => { errors: @user.errors.full_messages }
     end
   end
 
   def destroy
-    if current_user.id.to_s != params[:id]
-      render :status => 403, :json => []
+    @user = User.find params[:id]
+    if current_user.id != @user.id
+      render :status => 403, :json => {}
       return nil
     end
-    user = User.find params[:id]
-    user.destroy
-    render :json => []
+    @user.destroy
+    render :json => @user
   end
 
   private
 
   def user_params
-    params.require(:user).permit(:name, :password, :sex, :birthday, :location)
+    params.require(:user).permit(:name, :password, :gender, :birthday, :location, :img)
   end
 end

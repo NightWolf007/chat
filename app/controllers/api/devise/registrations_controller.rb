@@ -6,23 +6,11 @@ class Api::Devise::RegistrationsController < Devise::RegistrationsController
 
   def process_avatar
     if params.has_key?(:user) && params[:user].has_key?(:img)
-      params[:user][:image] = upload_avatar(params[:user][:img])
+      params[:user][:image] = upload_avatar params[:user][:img]
       params[:user].delete(:img)
     else
       params[:user][:image] = nil
     end
-  end
-
-  def upload_avatar(image)
-    filename = "#{SecureRandom.hex(5)}.#{image.original_filename.split('.').last}"
-
-    file = image.read
-    File.open("#{ENV['AVATARS_DIR']}/#{filename}", 'wb') do |f|
-      f.write file
-    end
-
-    p filename
-    return filename
   end
 
   def configure_sign_up_params

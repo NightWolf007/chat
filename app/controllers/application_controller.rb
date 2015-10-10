@@ -1,11 +1,18 @@
 class ApplicationController < ActionController::Base
   respond_to :json
-  # Prevent CSRF attacks by raising an exception.
-  # For APIs, you may want to use :null_session instead.
-  # protect_from_forgery with: :exception
 
   before_filter :authenticate_user_from_token!
-  # protect_from_forgery with: :null_session
+
+  def upload_avatar(image)
+    filename = "#{SecureRandom.hex(5)}.#{image.original_filename.split('.').last}"
+
+    file = image.read
+    File.open("#{ENV['AVATARS_DIR']}/#{filename}", 'wb') do |f|
+      f.write file
+    end
+
+    return filename
+  end
 
   private
 
