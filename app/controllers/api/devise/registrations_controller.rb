@@ -1,7 +1,33 @@
-class Api::Devise::RegistrationsController < DeviseTokenAuth::RegistrationsController
+class Api::Devise::RegistrationsController < Devise::RegistrationsController
   before_filter :configure_sign_up_params, only: [:create]
-# before_filter :configure_account_update_params, only: [:update]
+  before_filter :process_avatar, only: [:create]
 
+  protected
+
+  def process_avatar
+    if params.has_key?(:user) && params[:user].has_key?(:img)
+      params[:user][:image] = upload_avatar(params[:user][:img])
+      params[:user].delete(:img)
+    else
+      params[:user][:image] = nil
+    end
+  end
+
+  def upload_avatar(image)
+    filename = "#{SecureRandom.hex(5)}.#{image.original_filename.split('.').last}"
+
+    file = image.read
+    File.open("#{ENV['AVATARS_DIR']}/#{filename}", 'wb') do |f|
+      f.write file
+    end
+
+    p filename
+    return filename
+  end
+
+  def configure_sign_up_params
+    devise_parameter_sanitizer.for(:sign_up).push :gender, :birthday, :location, :image
+  end
   # GET /resource/sign_up
   # def new
   #   super
@@ -39,9 +65,9 @@ class Api::Devise::RegistrationsController < DeviseTokenAuth::RegistrationsContr
   # protected
 
   # If you have extra params to permit, append them to the sanitizer.
-  def configure_sign_up_params
-    devise_parameter_sanitizer.for(:sign_up).push :gender, :birthday, :location
-  end
+  # def configure_sign_up_params
+  #   devise_parameter_sanitizer.for(:sign_up).push :gender, :birthday, :location
+  # end
 
   # If you have extra params to permit, append them to the sanitizer.
   # def configure_account_update_params
