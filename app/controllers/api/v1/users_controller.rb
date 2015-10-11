@@ -22,13 +22,16 @@ class Api::V1::UsersController < ApplicationController
       return nil
     end
 
-    if params.has_key?(:user) 
-      if params[:user].has_key?(:img)
-        params[:user][:image] = upload_avatar params[:user][:img]
-        params[:user].delete(:img)
-      else
-        params[:user][:image] = nil
-      end
+    unless params.has_key?(:user)
+      render status: 400, json: { errors: "User can't be blank" }
+      return nil
+    end
+
+    if params[:user].has_key?(:img)
+      params[:user][:image] = UploadAvatar.new(params[:user][[:img]]).execute
+      params[:user].delete(:img)
+    else
+      params[:user][:image] = nil
     end
 
     if @user.update_attributes user_params

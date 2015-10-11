@@ -6,7 +6,7 @@ class Api::Devise::RegistrationsController < Devise::RegistrationsController
 
   def process_avatar
     if params.has_key?(:user) && params[:user].has_key?(:img)
-      params[:user][:image] = upload_avatar params[:user][:img]
+      params[:user][:image] = UploadAvatar.new(params[:user][:img]).execute
       params[:user].delete(:img)
     else
       params[:user][:image] = nil

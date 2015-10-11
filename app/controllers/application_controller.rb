@@ -3,17 +3,6 @@ class ApplicationController < ActionController::Base
 
   before_filter :authenticate_user_from_token!
 
-  def upload_avatar(image)
-    filename = "#{SecureRandom.hex(5)}.#{image.original_filename.split('.').last}"
-
-    file = image.read
-    File.open("#{ENV['AVATARS_DIR']}/#{filename}", 'wb') do |f|
-      f.write file
-    end
-
-    return filename
-  end
-
   private
 
     def authenticate_user_from_token!
