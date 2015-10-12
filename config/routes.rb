@@ -10,7 +10,7 @@ Rails.application.routes.draw do
         }
 
       get '/users/me' => 'users#me'
-      resources :users, :only => [:show, :update, :destroy]
+      resources :users
 
       get '/private/:id' => 'private_rooms#show'
       post '/private' => 'private_rooms#create'
