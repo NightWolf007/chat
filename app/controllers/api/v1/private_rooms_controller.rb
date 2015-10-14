@@ -9,7 +9,7 @@ class Api::V1::PrivateRoomsController < ApplicationController
   end
 
   def show
-    if RRoom.exists params[:id]
+    if RModels::Room.exists params[:id]
       render json: { room: { id: params[:id] } }
     else
       render status: 404, json: {}

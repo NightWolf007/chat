@@ -1,22 +1,19 @@
 Rails.application.routes.draw do
 
-  namespace :api, as: nil, defaults: {format: 'json'} do
+  namespace :api, as: nil, defaults: { format: 'json' } do
     namespace :v1, as: nil do
       devise_for :users, controllers:
         {
-          :passwords => 'api/devise/passwords',
-          :registrations => 'api/devise/registrations',
-          :sessions => 'api/devise/sessions'
+          passwords: 'api/devise/passwords',
+          registrations: 'api/devise/registrations',
+          sessions: 'api/devise/sessions'
         }
 
-      get '/users/me' => 'users#me'
+      # get '/users/me' => 'users#me'
       resources :users
 
-      get '/private/:id' => 'private_rooms#show'
-      post '/private' => 'private_rooms#create'
-      # get '/anonymous/:id' => 'anonymous_rooms#show'
-      # post '/anonymous' => 'anonymous_rooms#create'
-      get '/messages' => 'channels#messages'
+      resources :private_rooms, only: [:show, :create]
+      resources :messages, only: [:index]
       post '/rooms/:id/upload' => 'channels#upload'
     end
   end
