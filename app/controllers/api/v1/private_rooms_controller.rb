@@ -5,7 +5,7 @@ class Api::V1::PrivateRoomsController < ApplicationController
   end
 
   def create_success(key, uid)
-    render json: { room: { id: key }, user: { uid: uid } }
+    render json: { room: { id: key }, user: { id: uid } }
   end
 
   def show
