@@ -60,7 +60,6 @@ end
 $redis = Redis.new(:host => options[:rbinding], :port => options[:rport].to_i, :db => 0)
 
 WSApp = EM.run {
-  ROOM_TTL = 86400 # 24 hours
 
   @rooms = {}
 

@@ -1,6 +1,7 @@
 module RModels
 
   TABLE_NAME = "rooms"
+  ROOM_TTL = 86400 # 24 hours
 
   class Room
 
@@ -61,6 +62,8 @@ module RModels
 
     def save
       $redis.set "#{TABLE_NAME}:#{@id}", 1 
+      expire
+      return self
     end
 
     def persist
@@ -68,7 +71,7 @@ module RModels
       $redis.persist "#{RModels::Message::TABLE_NAME}:#{@id}"
     end
 
-    def expire(ttl)
+    def expire(ttl = ROOM_TTL)
       $redis.expire "#{RModels::User::TABLE_ALLOWED}:#{@id}", ttl
       $redis.expire "#{RModels::Message::TABLE_NAME}:#{@id}", ttl
     end

@@ -7,7 +7,7 @@ class CreatePrivateRoom
   def execute
     key = generate_s 6
     @context.room_exists(key) if RModels::Room.exists key
-    RModels::Room.create key
+    room = RModels::Room.create key
     @context.room_success key
   end
 
