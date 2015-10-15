@@ -33,11 +33,11 @@ module RModels
     end
 
     def initialize(options={})
-      @id = options.fetch 'id', SecureRandom.generate(6)
-      @text = options.fetch 'text'
-      @timestamp = options.fetch 'timestamp', Time.now
-      @user_id = options.fetch 'user_id'
-      @room_id = options.fetch 'room_id'
+      @id = options.fetch :id, SecureRandom.hex(6)
+      @text = options.fetch :text
+      @timestamp = options.fetch :timestamp, Time.now
+      @user_id = options.fetch :user_id
+      @room_id = options.fetch :room_id
     end
 
     def user
@@ -49,7 +49,7 @@ module RModels
     end
 
     def save
-      $redis.rpush "#{TABLE_NAME}:#{rid}", to_json
+      $redis.rpush "#{TABLE_NAME}:#{@room_id}", to_json
     end
 
     def to_json

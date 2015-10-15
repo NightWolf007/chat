@@ -48,15 +48,18 @@ module RModels
       user.allow @id
     end
 
+    def uname_exists?(name)
+      RModels::User.allowed_json(@id).values.index { |u| u['name'] == name }
+    end
+
     def persist
       $redis.persist "#{RModels::User::TABLE_ALLOWED}:#{@id}"
-      $redis.persist "#{RModels::Message::TABLE_ALLOWED}:#{@id}"
+      $redis.persist "#{RModels::Message::TABLE_NAME}:#{@id}"
     end
 
     def expire(ttl)
       $redis.expire "#{RModels::User::TABLE_ALLOWED}:#{@id}", ttl
-      $redis.expire "#{RModels::Message::TABLE_ALLOWED}:#{@id}", ttl
+      $redis.expire "#{RModels::Message::TABLE_NAME}:#{@id}", ttl
     end
   end
-
 end

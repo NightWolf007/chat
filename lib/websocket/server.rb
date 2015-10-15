@@ -50,9 +50,9 @@ end
 
 def validate(msg, is_connected)
   unless is_connected
-    msg['room'] && msg['room']['id'] && msg['user'] && msg['user']['id'] && msg['user']['name']
+    !!(msg['room'] && msg['room']['id'] && msg['user'] && msg['user']['id'])
   else
-    msg['message'] 
+    !!msg['message']
   end
 end
 
@@ -65,78 +65,45 @@ WSApp = EM.run {
 
   @rooms = {}
 
-  def cancel_timer(key)
-    if @timers.has_key?(key)
-      p "Cancel removing channel #{key}"
-      EM.cancel_timer(@timers[key])
-      @timers.delete(key)
-    end
-  end
-
   EM::WebSocket.run(:host => options[:binding], :port => options[:port].to_i) do |ws|
 
     ws.onopen { |handshake|
       p "WebSocket connection open from #{ws.remote_addr}"
-      room_id = nil
-      user_id = nil
-      uname = nil
+      room = nil
+      user = nil
       sid = 0
       remote_addr = ws.remote_addr
 
       ws.onclose {
-        next unless room_id
+        next unless room
 
-        @rooms[room_id].unsubscribe sid
+        @rooms[room.id].unsubscribe sid
 
-        @rooms[room_id].push(name: uname, sid: sid, status: "disconnected")
-        p "User #{uname}@#{remote_addr} with sid #{sid} disconnected from room #{room_id}"
+        @rooms[room.id].push(name: user.name, sid: sid, status: "disconnected")
+        p "User #{user.name}@#{remote_addr} with sid #{sid} disconnected from room #{room.id}"
 
-        room = RModels.find room_id
         room.expire ROOM_TTL
-        # if channel # if user in channel
-        #   channel.unsubscribe sid
-        #   msg = {type: MTYPE::DISCONNECTED, data: {connected: false, ip: remote_addr, sid: sid, timestamp: Time.now.utc}}
-        #   @redis.rpush channel.key, msg.to_json
-        #   @redis.lpop channel.key if @redis.llen(channel.key) >= @max_chat_len
-        #   channel.push msg
-        #   channel.disconnect ws
-        #   p "User #{remote_addr} with sid #{sid} disconnected from channel #{channel.key}"
-        #   if chat_type > 0 && channel.clients.empty?
-        #     @redis.expire(channel.key, @expire_time)
-        #     if chat_type == 1
-        #       @timers[channel.key] = EM.add_timer 5, proc {
-        #         p "Deleting channel #{channel.key}"
-        #         @rooms.delete(channel)
-        #       }
-        #     end
-        #     if chat_type > 1
-        #       @timers[channel.key] = EM.add_timer 5, proc { 
-        #         @privates.delete(channel)
-        #       }
-        #     end
-        #     p "Channel #{channel.key} is empty and will be removed"
-        #   elsif chat_type > 1
-        #     channel.clients.last.close 1000
-        #   end
       }
 
       ws.onmessage { |msg|
         begin
           msg = JSON.parse msg
         rescue JSON::ParserError
+          p "Error on #{remote_addr}: " + "invalid JSON"
           ws.close 4400
           next
         end
 
-        unless validate(msg, room_id != nil)
+        unless validate(msg, !!room)
+          p "Error on #{remote_addr}: " + "invalid message"
           ws.close 4400
           next
         end
 
         # on simple message
-        if room_id
-          @rooms[room_id].push(name: uname, sid: sid, message: msg['message'])
-          Message.new(text: msg['message'], user_id: user_id, room_id: room_id).save
+        if room
+          @rooms[room.id].push(name: user.name, sid: sid, message: msg['message'])
+          RModels::Message.new(text: msg['message'], user_id: user.id, room_id: room.id).save
           next
         end
 
@@ -144,13 +111,15 @@ WSApp = EM.run {
         room = RModels::Room.find msg['room']['id']
 
         unless room
+          p "Error on #{remote_addr}: " + "room not found"
           ws.close 4404
           next
         end
 
-        user = room.allowed.bsearch { |u| u.id == msg['user']['id'] }
+        user = room.allowed[msg['user']['id']]
 
         unless user && user.ip == remote_addr
+          p "Error on #{remote_addr}: " + "access denied"
           ws.close 4403
           next
         end
@@ -165,15 +134,10 @@ WSApp = EM.run {
           end
         }
 
-
-        room_id = room.id
-        user_id = msg['user']['id']
-        uname = msg['user']['name']
-
         room.persist # restore expire timer
 
-        p "User #{uname}@#{remote_addr} connected to room #{room_id} with sid #{sid}"
-        @rooms[room_id].push(name: uname, sid: sid, status: 'connected')
+        p "User #{user.name}@#{remote_addr} connected to room #{room.id} with sid #{sid}"
+        @rooms[room.id].push(name: user.name, sid: sid, status: 'connected')
           
         #   if msg["type"] == 0
         #     raise ChatError.new "User already in channel" if channel

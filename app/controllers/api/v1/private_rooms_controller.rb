@@ -1,7 +1,12 @@
 class Api::V1::PrivateRoomsController < ApplicationController
 
   def show
-    GetPrivateRoom.new(self, params[:id], current_user).execute
+    uid = current_user ? current_user.id : SecureRandom.hex(5)
+    uname = current_user ? current_user.name : params[:name]
+
+    return render(status: :bad_request, json: {}) unless uname
+
+    GetPrivateRoom.new(self, params[:id], uid, uname).execute
   end
 
   def room_not_found
@@ -9,11 +14,15 @@ class Api::V1::PrivateRoomsController < ApplicationController
   end
 
   def create
-    CreatePrivateRoom.new(self, current_user).execute
+    uid = current_user ? current_user.id : SecureRandom.hex(5)
+    uname = current_user ? current_user.name : params[:name]
+    
+    return render(status: :bad_request, json: {}) unless uname
+
+    CreatePrivateRoom.new(self, uid, uname).execute
   end
 
   def room_success(room_id, uid)
     render json: { room: { id: room_id }, user: { id: uid } }
   end
-
 end
