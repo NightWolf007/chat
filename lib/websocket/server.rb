@@ -61,7 +61,6 @@ $redis = Redis.new(:host => options[:rbinding], :port => options[:rport].to_i, :
 
 WSApp = EM.run {
   ROOM_TTL = 86400 # 24 hours
-  @max_chat_len = 1000
 
   @rooms = {}
 
@@ -82,7 +81,10 @@ WSApp = EM.run {
         @rooms[room.id].push(name: user.name, sid: sid, status: "disconnected")
         p "User #{user.name}@#{remote_addr} with sid #{sid} disconnected from room #{room.id}"
 
-        room.expire ROOM_TTL
+        if room.allowed_ids.empty?
+          room.expire(ROOM_TTL)
+          @rooms.delete room.id
+        end
       }
 
       ws.onmessage { |msg|
@@ -138,46 +140,6 @@ WSApp = EM.run {
 
         p "User #{user.name}@#{remote_addr} connected to room #{room.id} with sid #{sid}"
         @rooms[room.id].push(name: user.name, sid: sid, status: 'connected')
-          
-        #   if msg["type"] == 0
-        #     raise ChatError.new "User already in channel" if channel
-        #     chat_type = msg['data']['chat']
-        #     if chat_type == 0 # global chat
-        #       channel = @global
-        #     elsif chat_type == 1 # room chat
-        #       channel = get_room_channel(msg['data']['key'])
-        #       raise ChatError.new "Bad channel key" if !channel
-        #       cancel_timer channel.key
-        #       @redis.persist channel.key
-        #     else # private chat
-        #       channel = get_private_channel(msg['data'])
-        #       cancel_timer channel.key
-        #       @redis.persist channel.key
-        #     end
-        #     channel.connect ws
-        #     sid = channel.subscribe { |msg|
-        #       ws.send msg.to_json
-        #     }
-        #     p "User #{remote_addr} connected to channel #{channel.key} with sid #{sid}"
-        #     msg = {type: MTYPE::CONNECTED, data: {connected: true, ip: remote_addr, sid: sid, timestamp: Time.now.utc}}
-        #     @redis.rpush channel.key, msg.to_json
-        #     @redis.lpop channel.key if @redis.llen(channel.key) >= @max_chat_len
-        #     channel.push msg
-        #   elsif channel # if user in channel
-        #     msg = {type: MTYPE::MESSAGE, data: {ip: remote_addr, sid: sid, message: msg['message'], timestamp: Time.now.utc}}
-        #     msg[:file] = msg['file'] if msg.has_key?('file')
-        #     @redis.rpush channel.key, msg.to_json
-        #     @redis.lpop channel.key if @redis.llen(channel.key) >= @max_chat_len
-        #     channel.push msg
-        #   else
-        #     raise ChatError.new "Channel is not defined"
-        #   end
-
-        # rescue NoMethodError => e
-        #   ws.send JSON.generate({type: MTYPE::ERROR, error: "Message must contain field " + e.message})
-        # # rescue CWS::ChatError => e
-        # #   ws.send JSON.generate({type: MTYPE::ERROR, error: e.message})
-        # end
       }
     }
   end

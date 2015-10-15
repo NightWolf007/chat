@@ -9,7 +9,7 @@ class GetPrivateRoom
     if room
       user = init_user
       room.allow(user)
-      @context.room_success @room_id, user.id
+      @context.user_success user.id
     else
       @context.room_not_found @room_id
     end

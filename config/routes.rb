@@ -12,7 +12,7 @@ Rails.application.routes.draw do
       # get '/users/me' => 'users#me'
       resources :users
 
-      resources :private_rooms, only: [:show, :create]
+      resources :private_rooms, only: [:show, :create], path: 'privateRooms'
       resources :messages, only: [:index]
       post '/rooms/:id/upload' => 'channels#upload'
     end

@@ -1,5 +1,7 @@
 module RModels
 
+  TABLE_NAME = "rooms"
+
   class Room
 
     attr_accessor :id
@@ -7,11 +9,16 @@ module RModels
     class << self
 
       def find(id)
-        new(id: id) if exists id
+        room = $redis.get "#{TABLE_NAME}:#{id}"
+        new(id: id) if room
       end
 
       def exists(id)
-        $redis.exists "#{RModels::User::TABLE_ALLOWED}:#{id}"
+        $redis.exists "#{TABLE_NAME}:#{id}"
+      end
+
+      def create(id)
+        new(id: id).save
       end
 
     end
@@ -50,6 +57,10 @@ module RModels
 
     def uname_exists?(name)
       RModels::User.allowed_json(@id).values.index { |u| u['name'] == name }
+    end
+
+    def save
+      $redis.set "#{TABLE_NAME}:#{@id}", 1 
     end
 
     def persist

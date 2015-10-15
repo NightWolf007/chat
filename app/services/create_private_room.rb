@@ -1,21 +1,17 @@
 class CreatePrivateRoom
 
-  def initialize(context, uid, uname)
-    @context, @uid, @uname = context, uid, uname
+  def initialize(context)
+    @context = context
   end
 
   def execute
-    key = generate_s(6)
-    user = init_user
-    RModels::Room.new(id: key).allow(user)
-    @context.room_success key, user.id
+    key = generate_s 6
+    @context.room_exists(key) if RModels::Room.exists key
+    RModels::Room.create key
+    @context.room_success key
   end
 
   private
-
-  def init_user
-    RModels::User.new(id: @uid, ip: @context.request.remote_ip, name: @uname)
-  end
 
   def generate_s(len)
     charset = Array('A'..'Z') + Array('a'..'z')
