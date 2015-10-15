@@ -39,8 +39,8 @@ class EM::WebSocket::Connection
     send JSON.generate(type: 0, error: error)
   end
 
-  def send_info(name, sid)
-    send JSON.generate(type: 1, name: name, sid: sid, timestamp: Time.now)
+  def send_info(name, sid, status)
+    send JSON.generate(type: 1, name: name, sid: sid, status: status, timestamp: Time.now)
   end
 
   def send_message(name, sid, message)
@@ -60,7 +60,7 @@ end
 $redis = Redis.new(:host => options[:rbinding], :port => options[:rport].to_i, :db => 0)
 
 WSApp = EM.run {
-  @expire_time = 86400 # 24 hours
+  ROOM_TTL = 86400 # 24 hours
   @max_chat_len = 1000
 
   @rooms = {}
@@ -78,19 +78,21 @@ WSApp = EM.run {
     ws.onopen { |handshake|
       p "WebSocket connection open from #{ws.remote_addr}"
       room_id = nil
+      user_id = nil
       uname = nil
       sid = 0
       remote_addr = ws.remote_addr
 
       ws.onclose {
-        unless room_id
-          p "Anonym user #{remote_addr} disconnected"
-          next
-        end
+        next unless room_id
+
         @rooms[room_id].unsubscribe sid
 
-        @rooms[room_id].push
-        p "User #{remote_addr} with sid #{sid} disconnected from room #{room_id}"
+        @rooms[room_id].push(name: uname, sid: sid, status: "disconnected")
+        p "User #{uname}@#{remote_addr} with sid #{sid} disconnected from room #{room_id}"
+
+        room = RModels.find room_id
+        room.expire ROOM_TTL
         # if channel # if user in channel
         #   channel.unsubscribe sid
         #   msg = {type: MTYPE::DISCONNECTED, data: {connected: false, ip: remote_addr, sid: sid, timestamp: Time.now.utc}}
@@ -131,13 +133,15 @@ WSApp = EM.run {
           next
         end
 
+        # on simple message
         if room_id
-          @rooms[room_id].push msg['message']
+          @rooms[room_id].push(name: uname, sid: sid, message: msg['message'])
+          Message.new(text: msg['message'], user_id: user_id, room_id: room_id).save
           next
         end
 
+        # on connection message
         room = RModels::Room.find msg['room']['id']
-        p room
 
         unless room
           ws.close 4404
@@ -146,9 +150,6 @@ WSApp = EM.run {
 
         user = room.allowed.bsearch { |u| u.id == msg['user']['id'] }
 
-        p room.allowed
-        p user
-
         unless user && user.ip == remote_addr
           ws.close 4403
           next
@@ -156,19 +157,23 @@ WSApp = EM.run {
 
         @rooms[room.id] = EM::Channel.new unless @rooms.include? room.id
 
-        sid = @rooms[room.id].subscribe { |msg|
-          if msg
-            ws.send_message(uname, sid, msg)
+        sid = @rooms[room.id].subscribe { |data|
+          if data[:message]
+            ws.send_message(data[:name], data[:sid], data[:message])
           else
-            ws.send_info(uname, sid)
+            ws.send_info(data[:name], data[:sid], data[:status])
           end
         }
 
-        uname = msg['user']['name']
-        room_id = room.id
 
-        p "User #{remote_addr} connected to room #{room_id} with sid #{sid}"
-        @rooms[room_id].push
+        room_id = room.id
+        user_id = msg['user']['id']
+        uname = msg['user']['name']
+
+        room.persist # restore expire timer
+
+        p "User #{uname}@#{remote_addr} connected to room #{room_id} with sid #{sid}"
+        @rooms[room_id].push(name: uname, sid: sid, status: 'connected')
           
         #   if msg["type"] == 0
         #     raise ChatError.new "User already in channel" if channel

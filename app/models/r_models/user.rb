@@ -16,8 +16,8 @@ module RModels
         sallowed.map do |key|
           suser = $redis.hget "#{TABLE_ALLOWED}:#{rid}", key
           juser = JSON.parse suser
-          juser['id'] = key
-          new juser
+          new(id: key, ip: juser['ip'], gender: juser['gender'],
+              age: juser['age'], location: juser['location'])
         end
       end
 
@@ -44,12 +44,11 @@ module RModels
     end
 
     def initialize(options={})
-      p options
-      @id = options.fetch 'id', SecureRandom.hex(4)
-      @ip = options.fetch 'ip'
-      @gender = options['gender']
-      @age = options['age']
-      @location = options['location']
+      @id = options.fetch :id, SecureRandom.hex(4)
+      @ip = options.fetch :ip
+      @gender = options[:gender]
+      @age = options[:age]
+      @location = options[:location]
     end
 
     def allow(rid)

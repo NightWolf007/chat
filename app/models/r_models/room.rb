@@ -7,7 +7,7 @@ module RModels
     class << self
 
       def find(id)
-        new('id': id) if exists id
+        new(id: id) if exists id
       end
 
       def exists(id)
@@ -17,7 +17,7 @@ module RModels
     end
 
     def initialize(options={})
-      @id = options.fetch 'id', SecureRandom.hex(4)
+      @id = options.fetch :id, SecureRandom.hex(4)
     end
 
     def messages
@@ -46,6 +46,16 @@ module RModels
 
     def allow(user)
       user.allow @id
+    end
+
+    def persist
+      $redis.persist "#{RModels::User::TABLE_ALLOWED}:#{@id}"
+      $redis.persist "#{RModels::Message::TABLE_ALLOWED}:#{@id}"
+    end
+
+    def expire(ttl)
+      $redis.expire "#{RModels::User::TABLE_ALLOWED}:#{@id}", ttl
+      $redis.expire "#{RModels::Message::TABLE_ALLOWED}:#{@id}", ttl
     end
   end
 

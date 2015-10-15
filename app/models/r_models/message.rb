@@ -10,18 +10,19 @@ module RModels
 
       # get all by room id
       def select(rid)
-        srooms = $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
-        srooms.map do |sroom|
-          jroom = JSON.parse sroom
-          jroom['id'] = rid
-          new jroom
+        smsgs = $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
+        smsgs.map do |smsg|
+          jmsg = JSON.parse smsg
+          new(id: jmsg['id'], text: jmsg['text'], 
+              timestamp: jmsg['timestamp'], 
+              user_id: jmsg['user_id'], room_id: jmsg['room_id'])
         end
       end
 
       def select_json(rid)
         $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
-        srooms.map do |sroom|
-          JSON.parse sroom
+        smsgs.map do |smsg|
+          JSON.parse smsg
         end
       end
 
@@ -40,7 +41,7 @@ module RModels
     end
 
     def user
-      RModelsUser.find @room_id, @user_id
+      RModels::User.find @room_id, @user_id
     end
 
     def room
