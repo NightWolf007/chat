@@ -1,23 +1,21 @@
 class Api::V1::PrivateRoomsController < ApplicationController
 
   def show
-    uid = current_user ? current_user.id : SecureRandom.hex(5)
-    uname = current_user ? current_user.name : params[:name]
-
-    return render(status: :bad_request, json: {}) unless uname
-
-    GetPrivateRoom.new(self, params[:id], uid, uname).execute
+    return render json: { privateRoom: { id: params[:id] } } if RModels::Room.exists params[:id]
+    render status: :not_found, json: {}
   end
 
-  def user_success(uid)
-    render json: { user: { id: uid } }
+  def user_success(uid, image)
+    render json: { data: { type: 'room_user', id: uid, image: image } }
   end
 
   def room_not_found
     render status: 404, json: {}
   end
 
-  def create 
+  def create
+    return render status: :bad_request, json: {} unless current_user || request.headers['SessionToken']
+    return render status: :forbidden, json: {} unless RModels::User.exists(request.headers['SessionToken'])
     CreatePrivateRoom.new(self).execute
   end
 

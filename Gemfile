@@ -10,6 +10,7 @@ gem 'spring', :group => :development
 
 gem 'pg'
 
+gem 'jbuilder'
 
 
 # To use ActiveModel has_secure_password
@@ -37,3 +38,5 @@ gem 'rack-cors'
 gem 'devise'
 
 gem 'dotenv-rails'
+
+gem 'byebug'

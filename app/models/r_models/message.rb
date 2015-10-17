@@ -10,18 +10,15 @@ module RModels
 
       # get all by room id
       def select(rid)
-        smsgs = $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
-        smsgs.map do |smsg|
-          jmsg = JSON.parse smsg
+        Message.select_json(rid).map do |jmsg| 
           new(id: jmsg['id'], text: jmsg['text'], 
               timestamp: jmsg['timestamp'], 
-              user_id: jmsg['user_id'], room_id: jmsg['room_id'])
+              room_user_id: jmsg['room_user'], room_id: jmsg['room_id'])
         end
       end
 
       def select_json(rid)
-        $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
-        smsgs.map do |smsg|
+        Message.select_plain(rid).map do |smsg|
           JSON.parse smsg
         end
       end
@@ -30,30 +27,35 @@ module RModels
         $redis.lrange "#{TABLE_NAME}:#{rid}", 0, -1
       end
 
+      def create(options={})
+        Message.new(options).save
+      end
+
     end
 
     def initialize(options={})
       @id = options.fetch :id, SecureRandom.hex(6)
       @text = options.fetch :text
       @timestamp = options.fetch :timestamp, Time.now
-      @user_id = options.fetch :user_id
+      @room_user_id = options.fetch :room_user_id
       @room_id = options.fetch :room_id
     end
 
-    def user
-      RModels::User.find @room_id, @user_id
+    def room_user
+      RoomUser.find_by_ids @user_id, @room_id
     end
 
     def room
-      RModels::Room.find @room_id
+      Room.find @room_id
     end
 
     def save
       $redis.rpush "#{TABLE_NAME}:#{@room_id}", to_json
+      return self
     end
 
     def to_json
-      JSON.generate id: @id, text: @text, timestamp: @timestamp, user_id: @user_id
+      JSON.generate id: @id, text: @text, timestamp: @timestamp, room_user: @room_user_id
     end
   end
 

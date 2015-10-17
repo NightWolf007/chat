@@ -2,64 +2,59 @@ module RModels
 
   class User
 
-    attr_accessor :id, :ip, :name, :gender, :age, :location
+    attr_accessor :id, :ip #, :name, :gender, :age, :location
 
-    TABLE_ALLOWED = 'allowed'
-    TABLE_BLOCKED = 'blocked'
+    TABLE_NAME = 'users'
+    # TABLE_ALLOWED = 'allowed'
+    # TABLE_BLOCKED = 'blocked'
 
     class << self
 
-      # get all by room id
-      def allowed(rid)
-        allowed = {}
-        sallowed = $redis.hkeys "#{TABLE_ALLOWED}:#{rid}"
-        sallowed.each do |id|
-          juser = JSON.parse($redis.hget "#{TABLE_ALLOWED}:#{rid}", id)
-          allowed[id] = new(id: id, name: juser['name'], ip: juser['ip'], 
-                          gender: juser['gender'], age: juser['age'], location: juser['location'])
+      def create(options={})
+        User.new(options).save
+      end
+
+      def find(id)
+        return nil unless User.exists(id)
+        ip = $redis.hget "#{TABLE_NAME}:#{id}", 'ip'
+        User.new(id: id, ip: ip)
+      end
+
+      def exists(id)
+        $redis.exists "#{TABLE_NAME}:#{id}"
+      end
+
+      def all
+        all_ids.map do |id|
+          ip = $redis.hget "#{TABLE_NAME}:#{id}", 'ip'
+          User.new(id: id, ip: ip)
         end
-        return allowed
       end
 
-      def allowed_json(rid)
-        allowed = {}
-        sallowed = $redis.hkeys "#{TABLE_ALLOWED}:#{rid}"
-        sallowed.each do |id|
-          allowed[id] = JSON.parse($redis.hget "#{TABLE_ALLOWED}:#{rid}", id)
+      def all_ids
+        keys = $redis.keys "#{TABLE_NAME}:*"
+        keys.map do |k|
+          k = k[TABLE_NAME.length+1..-1]
         end
-        return allowed
       end
-
-      def allowed_plain(rid)
-        allowed = {}
-        sallowed = $redis.hkeys "#{TABLE_ALLOWED}:#{rid}"
-        sallowed.each do |key|
-          allowed[key] = $redis.hget "#{TABLE_ALLOWED}:#{rid}", key
-        end
-        return allowed
-      end
-
-      def allowed_ids(rid)
-        $redis.hkeys "#{TABLE_ALLOWED}:#{rid}"
-      end
-
     end
 
     def initialize(options={})
       @id = options.fetch :id, SecureRandom.hex(5)
       @ip = options.fetch :ip
-      @name = options.fetch :name
-      @gender = options[:gender]
-      @age = options[:age]
-      @location = options[:location]
     end
 
-    def allow(rid)
-      $redis.hset "#{TABLE_ALLOWED}:#{rid}", @id, to_json
+    def save
+      $redis.hset "#{TABLE_NAME}:#{@id}", 'ip', @ip
+      return self
     end
 
-    def to_json
-      JSON.generate ip: @ip, name: @name, gender: @gender, age: @age, location: @location
+    def expire(ttl)
+      $redis.expire "#{TABLE_NAME}:#{@id}", ttl
+    end
+
+    def persist
+      $redis.persist "#{TABLE_NAME}:#{@id}"
     end
   end
 

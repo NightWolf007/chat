@@ -1,7 +1,6 @@
 module RModels
 
   TABLE_NAME = "rooms"
-  ROOM_TTL = 86400 # 24 hours
 
   class Room
 
@@ -18,14 +17,18 @@ module RModels
         $redis.exists "#{TABLE_NAME}:#{id}"
       end
 
-      def create(id)
-        new(id: id).save
+      def create(options={})
+        new(options).save
       end
 
     end
 
     def initialize(options={})
-      @id = options.fetch :id, SecureRandom.hex(4)
+      @id = options.fetch :id, generate_s(6)
+    end
+
+    def empty?
+      RModels::RoomUser.select_by_room.empty?
     end
 
     def messages
@@ -40,40 +43,30 @@ module RModels
       RModels::Message.select_plain @id
     end
 
-    def allowed
-      RModels::User.allowed @id
-    end
-
-    def allowed_json
-      RModels::User.allowed_json @id
-    end
-
-    def allowed_plain
-      RModels::User.allowed_plain @id
-    end
-
-    def allow(user)
-      user.allow @id
-    end
-
-    def uname_exists?(name)
-      RModels::User.allowed_json(@id).values.index { |u| u['name'] == name }
+    def blocked_ids
+      []
     end
 
     def save
-      $redis.set "#{TABLE_NAME}:#{@id}", 1 
-      expire
+      $redis.set "#{TABLE_NAME}:#{@id}", 1
       return self
     end
 
+    def expire(ttl)
+      $redis.expire "#{TABLE_NAME}:#{@id}", ttl
+      $redis.expire "#{RModels::Message::TABLE_NAME}:#{@id}", ttl
+    end
+
     def persist
-      $redis.persist "#{RModels::User::TABLE_ALLOWED}:#{@id}"
+      $redis.persist "#{TABLE_NAME}:#{@id}"
       $redis.persist "#{RModels::Message::TABLE_NAME}:#{@id}"
     end
 
-    def expire(ttl = ROOM_TTL)
-      $redis.expire "#{RModels::User::TABLE_ALLOWED}:#{@id}", ttl
-      $redis.expire "#{RModels::Message::TABLE_NAME}:#{@id}", ttl
+    private
+
+    def generate_s(len)
+      charset = Array('A'..'Z') + Array('a'..'z')
+      Array.new(len) { charset.sample }.join
     end
   end
 end

@@ -2,9 +2,11 @@ require 'em-websocket'
 require 'json'
 require 'redis'
 require 'optparse'
+require 'byebug'
 require '/home/wolf/Projects/Ruby/Rails/chat/app/models/r_models/room'
 require '/home/wolf/Projects/Ruby/Rails/chat/app/models/r_models/message'
 require '/home/wolf/Projects/Ruby/Rails/chat/app/models/r_models/user'
+require '/home/wolf/Projects/Ruby/Rails/chat/app/models/r_models/room_user'
 
 options = {
   :binding => 'localhost',
@@ -29,119 +31,132 @@ OptionParser.new do |opts|
   end
 end.parse!
 
+
+class Channel < EM::Channel
+
+  attr_reader :id
+
+  def initialize(id)
+    super()
+    @id = id
+  end
+
+  def subscribe(ws)
+    super() do |data|
+      data[:room_id] = @id
+      data[:timestamp] = Time.now
+      ws.send JSON.generate(data)
+    end
+  end
+end
+
 class EM::WebSocket::Connection
 
   def remote_addr
     get_peername[2,6].unpack('nC4')[1..4].join('.')
   end
+end
 
-  def send_error(error)
-    send JSON.generate(type: 0, error: error)
-  end
-
-  def send_info(name, sid, status)
-    send JSON.generate(type: 1, name: name, sid: sid, status: status, timestamp: Time.now)
-  end
-
-  def send_message(name, sid, message)
-    send JSON.generate(type: 2, name: name, sid: sid, message: message, timestamp: Time.now)
-  end
+module MTYPES
+  MESSAGE = 0
+  SUBSCRIBE = 1
+  UNSUBSCRIBE = 2
 end
 
 def validate(msg, is_connected)
-  unless is_connected
-    !!(msg['room'] && msg['room']['id'] && msg['user'] && msg['user']['id'])
-  else
-    !!msg['message']
+  return msg['user'] && msg['user']['id'] unless is_connected
+  return false unless msg['type']
+  if msg['type'] == MTYPES::MESSAGE
+    return msg['message'] && msg['room']
+  elsif msg['type'] == MTYPES::SUBSCRIBE || msg['type'] == MTYPES::UNSUBSCRIBE
+    return !msg['room_user'].nil?
   end
+  return false
 end
 
 
 $redis = Redis.new(:host => options[:rbinding], :port => options[:rport].to_i, :db => 0)
 
-WSApp = EM.run {
+WSApp = EM.run do
 
-  @rooms = {}
+  ROOM_TTL = 60*60*24
+
+  @channels = {}
 
   EM::WebSocket.run(:host => options[:binding], :port => options[:port].to_i) do |ws|
 
-    ws.onopen { |handshake|
+    ws.onopen do |handshake|
       p "WebSocket connection open from #{ws.remote_addr}"
-      room = nil
       user = nil
-      sid = 0
-      remote_addr = ws.remote_addr
 
-      ws.onclose {
-        next unless room
+      ws.onclose do
+        next unless user
 
-        @rooms[room.id].unsubscribe sid
-
-        @rooms[room.id].push(name: user.name, sid: sid, status: "disconnected")
-        p "User #{user.name}@#{remote_addr} with sid #{sid} disconnected from room #{room.id}"
-
-        if room.allowed_ids.empty?
-          room.expire(ROOM_TTL)
-          @rooms.delete room.id
+        RModels::RoomUser.select_by_user(user.id).each do |ru|
+          room = ru.room
+          room.expire(ROOM_TTL) if room.empty?
         end
-      }
+      end
 
-      ws.onmessage { |msg|
+      ws.onmessage do |msg|
         begin
           msg = JSON.parse msg
         rescue JSON::ParserError
-          p "Error on #{remote_addr}: " + "invalid JSON"
-          ws.close 4400
+          ws.close(4400)
+        end
+
+        ws.close(4400) unless validate(msg, !user.nil?)
+
+        unless user
+          user = RModels::User.find msg['user']['id']
+          ip = ws.remote_addr
+          ws.close(4403) unless user && user.ip == ip
+          p "Connection opened with #{user.id}:#{ip}"
           next
         end
 
-        unless validate(msg, !!room)
-          p "Error on #{remote_addr}: " + "invalid message"
-          ws.close 4400
-          next
+        if msg['type'] == MTYPES::MESSAGE
+
+          room_user = RModels::RoomUser.find_by_ids(user.id, msg['room']) 
+          ws.close(4404) unless room_user
+
+          @channels[room_user.room_id] = Channel.new(room_user.room_id) unless @channels[room_user.room_id]
+
+          @channels[room_user.room_id].push(type: MTYPES::MESSAGE, text: msg['message'], room_user: room_user.id)
+          RModels::Message.create(text: msg['message'], room_user_id: room_user.id, room_id: room_user.room_id)
+
+        elsif msg['type'] == MTYPES::SUBSCRIBE
+
+          room_user = RModels::RoomUser.find msg['room_user']
+          ws.close(4404) unless room_user
+          ws.close(4403) unless room_user.user_id == user.id
+
+          @channels[room_user.room_id] = Channel.new(room_user.room_id) unless @channels[room_user.room_id]
+          @channels[room_user.room_id].subscribe(ws)
+
+          p "User #{room_user.name}@#{user.ip} room_user_id=#{room_user.id} subscribed to room #{room_user.room_id}"
+          @channels[room_user.room_id].push(type: MTYPES::SUBSCRIBE, room_user: room_user.id)
+          room_user.room.persist
+
+        elsif msg['type'] == MTYPES::UNSUBSCRIBE
+
+          room_user = RModels::RoomUser.find msg['room_user']
+          ws.close(4404) unless room_user
+          ws.close(4403) unless room_user.user_id == user.id
+
+          @channels[room_user.room_id] = Channel.new(room_user.room_id) unless @channels[room_user.room_id]
+          @channels[room_user.room_id].unsubscribe(ws)
+
+          p "User #{room_user.name}@#{user.ip} room_user_id=#{room_user.id} unsubscribed to room #{room_user.room_id}"
+          @channels[room_user.room_id].push(type: MTYPES::UNSUBSCRIBE, room_user: room_user.id)
+
+          room = room_user.room
+          room.expire(ROOM_TTL) if room.empty?
+
         end
-
-        # on simple message
-        if room
-          @rooms[room.id].push(name: user.name, sid: sid, message: msg['message'])
-          RModels::Message.new(text: msg['message'], user_id: user.id, room_id: room.id).save
-          next
-        end
-
-        # on connection message
-        room = RModels::Room.find msg['room']['id']
-
-        unless room
-          p "Error on #{remote_addr}: " + "room not found"
-          ws.close 4404
-          next
-        end
-
-        user = room.allowed[msg['user']['id']]
-
-        unless user && user.ip == remote_addr
-          p "Error on #{remote_addr}: " + "access denied"
-          ws.close 4403
-          next
-        end
-
-        @rooms[room.id] = EM::Channel.new unless @rooms.include? room.id
-
-        sid = @rooms[room.id].subscribe { |data|
-          if data[:message]
-            ws.send_message(data[:name], data[:sid], data[:message])
-          else
-            ws.send_info(data[:name], data[:sid], data[:status])
-          end
-        }
-
-        room.persist # restore expire timer
-
-        p "User #{user.name}@#{remote_addr} connected to room #{room.id} with sid #{sid}"
-        @rooms[room.id].push(name: user.name, sid: sid, status: 'connected')
-      }
-    }
+      end
+    end
   end
 
   p "WebSocket server started on ws://#{options[:binding]}:#{options[:port]}"
-}
+end

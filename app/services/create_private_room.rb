@@ -5,16 +5,8 @@ class CreatePrivateRoom
   end
 
   def execute
-    key = generate_s 6
-    @context.room_exists(key) if RModels::Room.exists key
-    room = RModels::Room.create key
-    @context.room_success key
-  end
-
-  private
-
-  def generate_s(len)
-    charset = Array('A'..'Z') + Array('a'..'z')
-    Array.new(len) { charset.sample }.join
+    # @context.room_exists(key) if RModels::Room.exists key
+    room = RModels::Room.create
+    @context.room_success room.id
   end
 end

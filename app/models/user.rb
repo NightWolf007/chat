@@ -15,7 +15,7 @@ class User < ActiveRecord::Base
     Date.today.year - self.birthday.year
   end
 
-  def img
+  def avatar
     "#{ENV['SERVER_BASE_URL']}/#{ENV['AVATARS_URL']}/#{image}" if image
   end
 

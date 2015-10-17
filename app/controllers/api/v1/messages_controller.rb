@@ -1,27 +1,16 @@
-class Api::V1::MessagesController < ApplicationController
+class Api::V1::MessagesController < ActionController::Base
 
   def index
-    unless params[:room_id]
-      return render status: :bad_request, json: {}
-    end
+    return render status: :bad_request, json: {} unless params[:room_id]
 
     room = RModels::Room.find params[:room_id]
-    unless room
-      return render status: :not_found, json: {}
-    end 
+    return render status: :not_found, json: {} unless room
 
-    if current_user
-      uid = current_user
-    elsif params[:user] && params[:user][:id]
-      uid = params[:user][:id]
-    else
-      return render status: :forbidden, json: {}
-    end
+    return render status: :forbidden, json: {} unless current_user || request.headers['SessionToken']
 
-    unless room.allowed_plain.include? uid
-      return render status: :forbidden, json: {}
-    end
+    user = RModels::User.find(request.headers['SessionToken'])
+    return render status: :forbidden, json: {} unless user && RModels::RoomUser.find_by_ids(user.id, params[:room_id])
 
-    render json: room.messages
+    render json: room.messages_json
   end
 end

@@ -1,5 +1,5 @@
 class Api::V1::UsersController < ApplicationController
-  before_filter :authenticate_user!, :except => :show
+  before_filter :authenticate_user!, :except => [ :show, :auth ]
 
   def show
     @user = User.find(params[:id])
